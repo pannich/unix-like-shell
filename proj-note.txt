@@ -1,0 +1,252 @@
+HW5
+shell.c shell.h
+  - contain logic
+msh_t
+  - state of the shell
+  - need to add fields* into this definition
+alloc_shell (function)
+  - initialize state of the shell
+  - max job in shell, max line in command line etc. This defines in the limitation in my shell.
+  - This function allocates, initialize and returns "a pointer" to msh_t value
+  -* Save these values in the state definitoin `msh_t` -> will use in later functions.
+  -* If set as 0; use these defaults
+      ""  const int MAX_LINE = 1024;
+      const int MAX_JOBS = 16;
+      const int MAX_HISTORY = 10;""
+  - Call this function in msh.c file -> allocate 'new shell' state
+
+
+
+Definition of msh_t is a struct's alias
+// Define the msh_t struct (assuming you have it defined somewhere in your code)
+typedef struct {
+    int max_jobs;
+    int max_line;
+    int max_history;
+    // ... (other fields you might have in msh_t)
+} msh_t;
+
+- Struct
+  : - aggregate in C, we can define this struct to have fields.
+   - I think this is similar to python Class object. Like define a new data type by
+   struct newstructname{
+    field1
+    field2
+   }
+   and the inside is similar to the attributes in python.
+
+
+strcpy(line_cpy,line);
+    int job_type;
+    char *job = parse_tok(line_cpy,&job_type);
+
+line[strcspn(line, "\n")] = '\0';
+  - change the \n to \0 null character when copy string down to the array o indicate the string ending.
+
+HW6
+char *envp[] = {
+        "PATH=/bin", // Define the PATH variable (modify this as per your requirements)
+        NULL // NULL-terminate the array
+    };
+-------
+
+
+HW6 NOTE*
+
+[WAITPID]
+is like a switch.
+wpid = waitpid(child_pid, &child_status, WNOHANG) for bg jobs
+wpid = waitpid(child_pid, &child_status, 0) for fg jobs
+- WNOHANG :
+    - It'll check on that child_pid and tell the parent to GO AHEAD
+    without having to wait for this child to finished. Parent is not blocked.
+    - Place waitpid WNOHANG outside of the whileloop for bg processes.
+    (This is to gain wpid to check whether the job is done but not to block pgm.)
+- 0 :
+    - will wait until the child process changes its state
+    - It'll check on that child_pid and tell the parent to wait until
+    child is done bf executing any other cmd. Parent is now blocked.
+    - We can delete this child from job array as soon as it's done
+    parent's now unblocked. (delete right after the wpid command)
+
+Note on deleting bg processes.
+- Delete the bg processes outside the while loop (after evaluated all cmds in the cmd line
+  brefore the eval return).
+- Loop thru bg processes in the job array to retreive the child_pid,
+  waitpid to check whether that child pid is still running.
+  Else, run delete_job of that child.
+
+---
+
+FREE MALLOC
+
+- you should free malloc when you request for malloc space.
+- if function returned that variable that uses malloc. You cannot
+  free inside that function.
+  Instead, free it when u call that function.
+  Example, job = parse_tok(..) in shell.c
+  job was assigned a string that uses malloc. Once we're done using that string job.
+  We can free(job) before we call the next malloc - job = parse_tok(..)
+- If we don't free before we reassign JOB, then memory leak. we won't be able to access
+  those jobs u assigned earlier. You'll only have access to the last job.
+
+
+strcpy (String Copy)
+
+- Purpose: Copies a string from one location to another.
+- Usage: strcpy(destination, source)
+- Precautions: It requires that the destination buffer has enough allocated space to hold the content of the source string.
+- If the destination buffer is not large enough, it can lead to buffer overflows and undefined behavior.
+- note: allocate memory by programmer
+
+strdup (String Duplicate)
+- Convenience: strdup simplifies the process of duplicating a string by handling memory allocation automatically.
+- Return Value: Returns a pointer to the newly allocated memory containing the duplicate string.
+- note: perform memo allocation for you, so you need to free it
+
+    char *duplicate = strdup("Hello, world!");
+    // 'duplicate' now holds a copy of "Hello, world!"
+
+    // Use 'duplicate' as needed
+
+    free(duplicate);
+
+MALLOC
+
+// assign memory space for argv array
+- char **argv = malloc(sizeof(char *) * (*argc + 1)); // an array of string
+---
+HW7
+fgets
+- fgets stops when reach max_lin-1, found new line, or EOF reached
+
+
+* Test Commands:
+
+INSIDE FOLDER
+gcc -g -I../include/ -o ../bin/msh ../src/*.c
+alias msh=../bin/msh
+
+* Test SIGNAL
+msh> 2 1234 ls
+
+
+
+TO ASK:
+1. problem when type unrecognised command to the msh shell.
+   - exit doesn't work after ctr+z
+
+
+
+
+
+
+
+--------
+hw6 code that i deleted
+
+/*Foreground job handling*/
+    if (new_state == FOREGROUND){
+      waitfg();
+
+      // ASK: am I replacing wpid with waitfg but why?
+      pid_t wpid = waitpid(child_pid, &child_status, 0); // will wait until childprocess changes its state
+      // new: update global pid to child pid
+      fgpid = child_pid;
+      if (wpid == -1) {
+        perror("waitpid");
+        exit(EXIT_FAILURE);
+      } else if (wpid > 0) {
+        if (WIFEXITED(child_status)){
+          // Child process terminated normally // note: it can exit normally but exitstatus != 0. exit abnormally is when it is interrupted/ killed.
+          // printf("Child process with PID %d. Exit normally with %d\n", (int)child_pid, WEXITSTATUS(child_status));
+          delete_job(shell->jobs, child_pid, shell->MAX_JOBS); // Delete the job from jobs array. Add if statement if delete not success.
+        } else {
+          // printf("Child process with PID %d. Exit abnormally with %d\n", (int)child_pid, WEXITSTATUS(child_status));
+        }
+      }
+    }
+
+
+
+// for (int i =0; i < shell->MAX_JOBS; ++i){
+  //   int child_status, wpid;
+  //   if (shell->jobs[i].state == BACKGROUND){   //delete the bg jobs only for the hw6.
+  //       pid_t child_pid = shell->jobs[i].pid;
+  //       wpid = waitpid(child_pid, &child_status, 0);
+  //       if (wpid == -1){
+  //         perror("waitpid");
+  //         exit(EXIT_FAILURE);
+  //       } else if (wpid > 0){
+  //         // delete bg job that has finished
+  //         if (WIFEXITED(child_status)){
+  //           delete_job(shell->jobs, child_pid, shell->MAX_JOBS); // Delete the job from jobs array. Add if statement if delete not success.
+  //         }
+  //      }
+  //   }
+  // }
+
+  /* This is deleting bg from evaluate: 'Manually' delete the jobs that's already completed*/
+  // for (int i =0; i < shell->MAX_JOBS; ++i){
+  //   // new: if it's a bg job, global pid is -1
+  //   int child_status, wpid;
+  //   if (shell->jobs[i].state == BACKGROUND){
+  //       pid_t child_pid = shell->jobs[i].pid;
+  //       wpid = waitpid(child_pid, &child_status, WNOHANG);
+  //       if (wpid == -1){
+  //         perror("waitpid");
+  //         exit(EXIT_FAILURE);
+  //       } else if (wpid > 0) { // delete bg job that has finished
+  //         if (WIFEXITED(child_status)){
+  //           // Child process terminated normally
+  //           delete_job(shell->jobs, child_pid, shell->MAX_JOBS); // Delete the job from jobs array. Add if statement if delete not success.
+  //       }
+  //      }
+  //   }
+  // }
+
+
+
+  // /* debugging */
+  //   for (int i = 0; i < shell->MAX_JOBS; ++i) {
+  //     printf("%d \t", shell->jobs[i].pid);
+  //     if (shell->jobs[i].state == SUSPENDED){
+  //       printf("suspended \t");
+  //     } else if  (shell->jobs[i].state == UNDEFINED){
+  //       printf("undef \t");
+  //     } else if  (shell->jobs[i].state == BACKGROUND){
+  //       printf("background \t");
+  //     } else if  (shell->jobs[i].state == FOREGROUND){
+  //       printf("foreground \t");
+  //     } else {
+  //       printf("%d others \t", shell->jobs[i].state);
+  //     }
+  //     printf("\n");}
+sigstop
+if (WTERMSIG(child_status) == SIGSTOP || WTERMSIG(child_status) == SIGTSTP)
+
+    printf("--enter sigchld handler--\n");
+    printf("fgpid : %d\t", fgpid);
+    printf("pid : %d\n", pid);
+
+
+
+// note ..
+
+  /*
+  wexit : child exit or wsignl : whenever child has suspended. then we need to update job state ie. delete that job or update the state of child.
+  parent just wait for fg process to complete. need to notify parent if the child terminate using this pid global var.
+  // in shell, make global var fgpid. update pid in the sigchild. if pid is fg assign to = pid -> make parent continute and go back to pid.
+  */
+
+
+  // add to the msh file. in the while loop -> if check global pid fg done -> break. dont forget sleep5.
+    // Sigprogmask(SIG_BLOCK, &mask_all, &prev_all);
+    // delete_job(pid);
+    // Sigprogmask(SIG_SETMASK, &prev_all, NULL);
+
+  //   // debgugging
+  //   Sio_puts("Hander readped child ");
+  //   Sio_putl((long)pid);
+  //   Sio_puts(" \n");
+  // 
