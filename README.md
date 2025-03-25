@@ -7,5 +7,6 @@ Built Unix shell from scratch with C.
 - History handling
 - Signal Handling
 
+
 **Start Code**
-The starter code for the `msh` shell 
+- The starter code for the `msh` shell 
